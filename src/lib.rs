@@ -161,3 +161,68 @@ pub unsafe extern "C" fn leansig_keypair_from_ssz(
         
     }
 }
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leansig_keypair_free(keypair: *mut Keypair) {
+    if !keypair.is_null() {
+        unsafe {
+            let _ = Box::from_raw(keypair);
+        }
+    }
+}
+
+// Get a pointer to the public key from a keypair
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leansig_keypair_get_public_key(keypair: *const Keypair) -> *const PublicKey {
+    if keypair.is_null() {
+           return ptr::null();
+    }
+    
+    unsafe {
+         &(*keypair).public_key
+    }
+}
+
+// Get a pointer to the private key from a keypair
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leansig_keypair_get_private_key(keypair: *const Keypair) -> *const SecretKey {
+    if keypair.is_null() {
+           return ptr::null();
+    }
+    
+    unsafe {
+         &(*keypair).secret_key
+    }
+}
+
+
+// Construct a standalone public key from SSZ-encoded bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leansig_public_key_from_ssz(public_key_ptr: *const u8, public_key_len: usize) -> *const PublicKey {
+    if public_key_ptr.is_null() {
+        return ptr::null_mut();
+    }
+    
+    unsafe {
+        let pk_slice = slice::from_raw_parts(public_key_ptr, public_key_len);
+        let public_key: LeanPublicKey = match LeanPublicKey::from_ssz_bytes(pk_slice) {
+            Ok(key) => key,
+            Err(_) => return ptr::null_mut(),
+        };
+        
+        Box::into_raw(Box::new(PublicKey::new(public_key)))
+    }
+}
+
+
+// Free a public key created via hashsig_public_key_from_ssz.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leansig_public_key_free(public_key: *mut PublicKey) {
+    if !public_key.is_null() {
+        unsafe {
+            let _ = Box::from_raw(public_key);
+        }
+    }
+}
+
+// Sign a message using a private key directly
