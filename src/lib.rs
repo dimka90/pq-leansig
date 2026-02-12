@@ -5,7 +5,7 @@ use rand::{SeedableRng, rngs::StdRng, Rng};
 use thiserror::Error;
 use std::ptr;
 use std::slice;
-use ssz::Decode;
+use ssz::{Decode, Encode};
 
 pub type LeanSignatureScheme = SIGTopLevelTargetSumLifetime32Dim64Base8;
 pub type LeanPublicKey = <LeanSignatureScheme as SignatureScheme>::PublicKey;
@@ -248,6 +248,34 @@ pub unsafe extern "C" fn leansig_sign(secret_key: *const SecretKey, message_ptr:
         
         Box::into_raw(Box::new(signature))
         
+    }
+}
+
+
+// free signature
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leansig_signature_free(signature: *mut Signature) {
+    if !signature.is_null() {
+        unsafe {
+            let _ = Box::from_raw(signature);
+        }
+    }
+}
+
+// Construct a signature from SSZ-encoded bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn leansig_signature_from_ssz(signature_ptr: *const u8, signature_len: usize) -> *mut Signature {
+    if signature_ptr.is_null() || signature_len == 0 {
+        return ptr::null_mut();
+    }
+    
+    unsafe {
+        let signature_slice = slice::from_raw_parts(signature_ptr, signature_len);
+        let signature: LeanSignature = match LeanSignature::from_ssz_bytes(signature_slice) {
+            Ok(sig) => sig,
+            Err(_) => return ptr::null_mut(),
+        };
         
+        Box::into_raw(Box::new(Signature { inner: signature }))
     }
 }
